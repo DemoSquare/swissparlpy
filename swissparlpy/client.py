@@ -1,7 +1,9 @@
-import requests
-import pyodata
+import math
 
-SERVICE_URL = 'https://ws.parlament.ch/odata.svc/'
+import pyodata
+import requests
+
+SERVICE_URL = "https://ws.parlament.ch/odata.svc/"
 
 
 class SwissParlClient(object):
@@ -34,32 +36,53 @@ class SwissParlClient(object):
     def get_glimpse(self, table, rows=5):
         entities = self._get_entities(table)
         return SwissParlResponse(
-            entities.top(rows).count(inline=True),
-            self.get_variables(table)
+            entities.top(rows).count(inline=True), self.get_variables(table)
         )
 
     def get_data(self, table, filter=None, **kwargs):
-        entities = self._get_entities(table)
-        if filter and callable(filter):
-            entities = entities.filter(filter(entities))
-        elif filter:
-            entities = entities.filter(filter)
-
-        if kwargs:
-            entities = entities.filter(**kwargs)
-        return SwissParlResponse(
-            entities.count(inline=True),
-            self.get_variables(table)
-        )
+        entities = self._filter_entities(self._get_entities(table), filter, **kwargs)
+        return SwissParlResponse(entities.count(inline=True), self.get_variables(table))
 
     def _get_entities(self, table):
         return getattr(self.client.entity_sets, table).get_entities()
 
+    def _filter_entities(self, entities, filter=None, **kwargs):
+        if filter and callable(filter):
+            entities = entities.filter(filter(entities))
+        elif filter:
+            entities = entities.filter(filter)
+        if kwargs:
+            entities = entities.filter(**kwargs)
+        return entities
+
+    def get_data_batched(self, table, filter=None, batch_size=50000, **kwargs):
+        entities = self._filter_entities(self._get_entities(table), filter, **kwargs)
+        count_data = entities.count().execute()
+        batch_requests = self.client.create_batch()
+        for i in range(math.ceil(count_data / batch_size)):
+            batch_requests.add_request(
+                self._filter_entities(self._get_entities(table), filter, **kwargs)
+                .skip(i * batch_size)
+                .top(batch_size)
+                .count(inline=True)
+            )
+        return SwissParlResponse(
+            batch_requests, self.get_variables(table), batched=True
+        )
+
 
 class SwissParlResponse(object):
-    def __init__(self, entity_request, variables):
-        self.entities = entity_request.execute()
-        self.count = self.entities.total_count
+    def __init__(self, entity_request, variables, batched=False):
+        if batched:
+            batch_responses = entity_request.execute()
+            self.count = sum([response.total_count for response in batch_responses])
+            self.entities = [
+                entity for response in batch_responses for entity in response
+            ]
+        else:
+            self.entities = entity_request.execute()
+            self.count = self.entities.total_count
+
         self.variables = variables
 
         self.data = []
