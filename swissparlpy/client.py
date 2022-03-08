@@ -1,7 +1,10 @@
+import abc
 import math
 
 import pyodata
 import requests
+
+from swissparlpy import SwissParlError
 
 SERVICE_URL = "https://ws.parlament.ch/odata.svc/"
 
@@ -58,36 +61,18 @@ class SwissParlClient(object):
     def get_data_batched(self, table, filter=None, batch_size=50000, **kwargs):
         entities = self._filter_entities(self._get_entities(table), filter, **kwargs)
         count_data = entities.count().execute()
-        batch_requests = self.client.create_batch()
+        batch_requests = []
         for i in range(math.ceil(count_data / batch_size)):
-            batch_requests.add_request(
+            batch_requests.append(
                 self._filter_entities(self._get_entities(table), filter, **kwargs)
                 .skip(i * batch_size)
                 .top(batch_size)
                 .count(inline=True)
             )
-        return SwissParlResponse(
-            batch_requests, self.get_variables(table), batched=True
-        )
+        return SwissParlBatchedResponse(batch_requests, self.get_variables(table))
 
 
-class SwissParlResponse(object):
-    def __init__(self, entity_request, variables, batched=False):
-        if batched:
-            batch_responses = entity_request.execute()
-            self.count = sum([response.total_count for response in batch_responses])
-            self.entities = [
-                entity for response in batch_responses for entity in response
-            ]
-        else:
-            self.entities = entity_request.execute()
-            self.count = self.entities.total_count
-
-        self.variables = variables
-
-        self.data = []
-        self._setup_proxies()
-
+class SwissParlResponse(abc.ABC):
     def _setup_proxies(self):
         for e in self.entities:
             row = {k: SwissParlDataProxy(e, k) for k in self.variables}
@@ -105,6 +90,37 @@ class SwissParlResponse(object):
         if isinstance(key, slice):
             return [{k: v() for k, v in i.items()} for i in items]
         return {k: v() for k, v in items.items()}
+
+
+class SwissParlRequestResponse(SwissParlResponse):
+    def __init__(self, entity_request, variables):
+        self.entities = entity_request.execute()
+        self.count = self.entities.total_count
+        self.variables = variables
+        self.data = []
+        super()._setup_proxies()
+
+
+class SwissParlBatchedResponse:
+    def __init__(self, entity_requests, variables, retries=50) -> None:
+        self.entities = []
+        self.count = []
+        for entity_request in entity_requests:
+            entities = self._execute_and_retry(entity_request, retries)
+            self.entities.append(entities)
+            self.count += entities.total_count
+        self.variables = variables
+        self.data = []
+        super._setup_proxies()
+
+    def _execute_and_retry(self, request, retries):
+        trials = 0
+        while trials < retries:
+            try:
+                return request.execute()
+            except ConnectionError:
+                trials += 1
+        raise SwissParlError(f"Could not execute request after {retries} retries")
 
 
 class SwissParlDataProxy(object):
