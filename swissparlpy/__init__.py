@@ -33,6 +33,11 @@ def get_data(table, filter=None, **kwargs):  # noqa
     return client.get_data(table, filter, **kwargs)
 
 
-def get_data_batched(table, filter=None, batch_size=500000, **kwargs):  # noqa
+def get_data_batched(table, filter=None, batch_size=50000, **kwargs):  # noqa
     client = SwissParlClient()
     return client.get_data_batched(table, filter, batch_size, **kwargs)
+
+
+def get_count(table, filter=None, **kwargs):  # noqa
+    client = SwissParlClient()
+    return client.get_count(table, filter, **kwargs)
