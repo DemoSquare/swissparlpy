@@ -1,12 +1,17 @@
 import abc
 import math
+import logging
 
 import pyodata
 import requests
+import tqdm
+import os
+import json
 
 from swissparlpy import SwissParlError
 
 SERVICE_URL = "https://ws.parlament.ch/odata.svc/"
+logger = logging.getLogger(__name__)
 
 
 class SwissParlClient(object):
@@ -38,14 +43,21 @@ class SwissParlClient(object):
 
     def get_glimpse(self, table, rows=5):
         entities = self._get_entities(table)
-        return SwissParlResponse(
+        return SwissParlRequestResponse(
             entities.top(rows).count(inline=True), self.get_variables(table)
         )
 
     def get_data(self, table, filter=None, **kwargs):
         entities = self._filter_entities(self._get_entities(table), filter, **kwargs)
-        return SwissParlResponse(entities.count(inline=True), self.get_variables(table))
+        return SwissParlRequestResponse(
+            entities.count(inline=True), self.get_variables(table)
+        )
 
+    def get_count(self, table, filter=None, **kwargs):
+        entities = self._filter_entities(self._get_entities(table), filter, **kwargs)
+        return entities.count().execute()
+
+        
     def _get_entities(self, table):
         return getattr(self.client.entity_sets, table).get_entities()
 
@@ -58,7 +70,9 @@ class SwissParlClient(object):
             entities = entities.filter(**kwargs)
         return entities
 
-    def get_data_batched(self, table, filter=None, batch_size=50000, **kwargs):
+    def get_data_batched(
+        self, table, filter=None, batch_size=50000, use_disk=False, **kwargs
+    ):
         entities = self._filter_entities(self._get_entities(table), filter, **kwargs)
         count_data = entities.count().execute()
         batch_requests = []
@@ -69,7 +83,14 @@ class SwissParlClient(object):
                 .top(batch_size)
                 .count(inline=True)
             )
-        return SwissParlBatchedResponse(batch_requests, self.get_variables(table))
+        logger.debug(
+            f"""Launching batch request for data of table {table} with batch size {batch_size}
+                num requests: {len(batch_requests)} for data of size {count_data}
+            """
+        )
+        return SwissParlBatchedResponse(
+            batch_requests, self.get_variables(table), use_disk=use_disk
+        )
 
 
 class SwissParlResponse(abc.ABC):
@@ -102,12 +123,28 @@ class SwissParlRequestResponse(SwissParlResponse):
 
 
 class SwissParlBatchedResponse:
-    def __init__(self, entity_requests, variables, retries=50) -> None:
+    def __init__(
+        self, entity_requests, variables, retries=10, use_disk=False, save_loc="."
+    ) -> None:
         self.entities = []
-        self.count = []
-        for entity_request in entity_requests:
+        self.savefiles = []
+        self.count = 0
+        for i, entity_request in tqdm.tqdm(enumerate(entity_requests)):
             entities = self._execute_and_retry(entity_request, retries)
-            self.entities.append(entities)
+            logger.debug(f"Batch {i} successful")
+            if use_disk:
+                file_path = os.path.join(save_loc, f"batch{i}")
+                with open(file_path, "w") as file:
+                    json.dump(
+                        [
+                            {k: str(getattr(entity, k)) for k in variables}
+                            for entity in entities
+                        ],
+                        file,
+                    )
+                self.savefiles.append(file_path)
+            else:
+                self.entities.append(entities)
             self.count += entities.total_count
         self.variables = variables
         self.data = []
@@ -119,7 +156,12 @@ class SwissParlBatchedResponse:
             try:
                 return request.execute()
             except ConnectionError:
+                logger.debug(f"Retrying request... num retries: {trials}")
                 trials += 1
+            except pyodata.exceptions.HttpError:
+                logger.info(f"HTTP error, retrying...num retries: {trials}")
+                trials += 1
+
         raise SwissParlError(f"Could not execute request after {retries} retries")
 
 
