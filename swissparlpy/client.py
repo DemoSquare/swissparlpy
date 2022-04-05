@@ -94,7 +94,14 @@ class SwissParlClient(object):
 
 
 class SwissParlResponse(abc.ABC):
+    def __init__(self, entities, variables, count):
+        self.entities = entities
+        self.variables = variables
+        self.count = count
+        self._setup_proxies()
+
     def _setup_proxies(self):
+        self.data = []
         for e in self.entities:
             row = {k: SwissParlDataProxy(e, k) for k in self.variables}
             self.data.append(row)
@@ -115,20 +122,17 @@ class SwissParlResponse(abc.ABC):
 
 class SwissParlRequestResponse(SwissParlResponse):
     def __init__(self, entity_request, variables):
-        self.entities = entity_request.execute()
-        self.count = self.entities.total_count
-        self.variables = variables
-        self.data = []
-        super()._setup_proxies()
+        entities = entity_request.execute()
+        super().__init__(entities, variables, entities.total_count)
 
 
-class SwissParlBatchedResponse:
+class SwissParlBatchedResponse(SwissParlResponse):
     def __init__(
         self, entity_requests, variables, retries=10, use_disk=False, save_loc="."
     ) -> None:
-        self.entities = []
+        entities = []
         self.savefiles = []
-        self.count = 0
+        count = 0
         for i, entity_request in tqdm.tqdm(enumerate(entity_requests)):
             entities = self._execute_and_retry(entity_request, retries)
             logger.debug(f"Batch {i} successful")
@@ -144,12 +148,11 @@ class SwissParlBatchedResponse:
                     )
                 self.savefiles.append(file_path)
             else:
-                self.entities.append(entities)
-            self.count += entities.total_count
-        self.variables = variables
-        self.data = []
-        super._setup_proxies()
+                entities.append(entities)
+            count += entities.total_count
 
+        super().__init__(entities, variables, count)
+        
     def _execute_and_retry(self, request, retries):
         trials = 0
         while trials < retries:
