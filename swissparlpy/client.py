@@ -8,6 +8,7 @@ import requests
 import tqdm
 
 from swissparlpy import SwissParlError
+from swissparlpy.response import SwissParlResponse
 
 SERVICE_URL = "https://ws.parlament.ch/odata.svc/"
 logger = logging.getLogger(__name__)
@@ -54,40 +55,17 @@ class SwissParlClient(object):
 
     def get_glimpse(self, table, rows=5):
         entities = self._get_entities(table)
-        return SwissParlRequestResponse(
-            entities.top(rows), self.get_variables(table)
+        return SwissParlResponse(
+            entities.top(rows).execute(), self.get_variables(table)
         )
 
     def get_data(self, table, filter=None, **kwargs):
         entities = self._filter_entities(self._get_entities(table), filter, **kwargs)
-        return SwissParlRequestResponse(
-            entities, self.get_variables(table)
+        return SwissParlResponse(
+            entities.execute(), self.get_variables(table)
         )
 
     def get_count(self, table, filter=None, **kwargs):
         entities = self._filter_entities(self._get_entities(table), filter, **kwargs)
         return entities.count().execute()
-
-    def get_data_batched(
-        self, table, filter=None, batch_size=50000, use_disk=False, **kwargs
-    ):
-        entities = self._filter_entities(self._get_entities(table), filter, **kwargs)
-        count_data = entities.count().execute()
-        batch_requests = []
-        for i in range(math.ceil(count_data / batch_size)):
-            batch_requests.append(
-                self._filter_entities(self._get_entities(table), filter, **kwargs)
-                .skip(i * batch_size)
-                .top(batch_size)
-            )
-        logger.debug(
-            """Launching batch request for data of table %s with batch size %i
-                num requests: %i for data of size %i
-            """, 
-            table, batch_size, len(batch_requests), count_data
-        )
-        return SwissParlBatchedResponse(
-            batch_requests, self.get_variables(table), use_disk=use_disk
-        )
-
 
