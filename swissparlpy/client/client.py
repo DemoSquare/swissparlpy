@@ -1,21 +1,16 @@
-import json
 import logging
-import math
-import os
 
 import pyodata
 import requests
-import tqdm
 
-from swissparlpy import SwissParlError
+from swissparlpy import SERVICE_URL, SwissParlError
 from swissparlpy.response import SwissParlResponse
 
-SERVICE_URL = "https://ws.parlament.ch/odata.svc/"
 logger = logging.getLogger(__name__)
 
 
 class SwissParlClient(object):
-    def __init__(self, session=None, url=SERVICE_URL):
+    def __init__(self, session=None, usl=SERVICE_URL):
         if not session:
             session = requests.Session()
         self.url = url
@@ -61,9 +56,7 @@ class SwissParlClient(object):
 
     def get_data(self, table, filter=None, **kwargs):
         entities = self._filter_entities(self._get_entities(table), filter, **kwargs)
-        return SwissParlResponse(
-            entities.execute(), self.get_variables(table)
-        )
+        return SwissParlResponse(entities.execute(), self.get_variables(table))
 
     def get_count(self, table, filter=None, **kwargs):
         entities = self._filter_entities(self._get_entities(table), filter, **kwargs)
