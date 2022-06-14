@@ -44,13 +44,13 @@ class SwissParlClient(object):
     def get_glimpse(self, table, rows=5):
         entities = self._get_entities(table)
         return SwissParlRequestResponse(
-            entities.top(rows).count(inline=True), self.get_variables(table)
+            entities.top(rows), self.get_variables(table)
         )
 
     def get_data(self, table, filter=None, **kwargs):
         entities = self._filter_entities(self._get_entities(table), filter, **kwargs)
         return SwissParlRequestResponse(
-            entities.count(inline=True), self.get_variables(table)
+            entities, self.get_variables(table)
         )
 
     def get_count(self, table, filter=None, **kwargs):
@@ -81,7 +81,6 @@ class SwissParlClient(object):
                 self._filter_entities(self._get_entities(table), filter, **kwargs)
                 .skip(i * batch_size)
                 .top(batch_size)
-                .count(inline=True)
             )
         logger.debug(
             f"""Launching batch request for data of table {table} with batch size {batch_size}
@@ -94,10 +93,9 @@ class SwissParlClient(object):
 
 
 class SwissParlResponse(abc.ABC):
-    def __init__(self, entities, variables, count):
+    def __init__(self, entities, variables):
         self.entities = entities
         self.variables = variables
-        self.count = count
         self._setup_proxies()
 
     def _setup_proxies(self):
@@ -107,7 +105,7 @@ class SwissParlResponse(abc.ABC):
             self.data.append(row)
 
     def __len__(self):
-        return self.count
+        return len(self.entities)
 
     def __iter__(self):
         for row in self.data:
@@ -123,7 +121,7 @@ class SwissParlResponse(abc.ABC):
 class SwissParlRequestResponse(SwissParlResponse):
     def __init__(self, entity_request, variables):
         entities = entity_request.execute()
-        super().__init__(entities, variables, entities.total_count)
+        super().__init__(entities, variables)
 
 
 class SwissParlBatchedResponse(SwissParlResponse):
@@ -132,9 +130,8 @@ class SwissParlBatchedResponse(SwissParlResponse):
     ) -> None:
         entities = []
         self.savefiles = []
-        count = 0
         for i, entity_request in tqdm.tqdm(enumerate(entity_requests)):
-            entities = self._execute_and_retry(entity_request, retries)
+            batch_entities = self._execute_and_retry(entity_request, retries)
             logger.debug(f"Batch {i} successful")
             if use_disk:
                 file_path = os.path.join(save_loc, f"batch{i}")
@@ -142,16 +139,15 @@ class SwissParlBatchedResponse(SwissParlResponse):
                     json.dump(
                         [
                             {k: str(getattr(entity, k)) for k in variables}
-                            for entity in entities
+                            for entity in batch_entities
                         ],
                         file,
                     )
                 self.savefiles.append(file_path)
             else:
-                entities.extend(entities)
-            count += entities.total_count
+                entities.extend(batch_entities)
 
-        super().__init__(entities, variables, count)
+        super().__init__(entities, variables)
 
     def _execute_and_retry(self, request, retries):
         trials = 0
