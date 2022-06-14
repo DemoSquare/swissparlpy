@@ -14,13 +14,16 @@ logger = logging.getLogger(__name__)
 
 
 class BatchSwissParlClient(SwissParlClient):
-    def __init__(self, session=None, url=SERVICE_URL, batch_size=1000, retries=10):
+    def __init__(
+        self, session=None, url=SERVICE_URL, batch_size=1000, retries=10, verbose=True
+    ):
         super().__init__(session, url)
         if batch_size < 1000:
             logger.warning("A batch size of less than 1000 will result in lost data!")
 
         self.batch_size = batch_size
         self.retries = max(0, retries)
+        self.verbose = verbose
 
     def _get_batch_queries(self, table, filter, data_count, **kwargs):
         queries = []
@@ -71,7 +74,8 @@ class BatchSwissParlClient(SwissParlClient):
 
         queries = self._get_batch_queries(table, filter, data_count, **kwargs)
         entities = itertools.chain.from_iterable(
-            self._execute_and_retry(query) for query in tqdm.tqdm(queries)
+            self._execute_and_retry(query)
+            for query in tqdm.tqdm(queries, disable=not self.verbose)
         )
 
         return SwissParlResponse(list(entities), self.get_variables(table))

@@ -33,7 +33,7 @@ def get_count(table, filter=None, **kwargs):  # noqa
     return client.get_count(table, filter, **kwargs)
 
 
-def get_data(table, filter=None, batch_size=1000, retries=10, **kwargs):  # noqa
+def get_data(table, filter=None, batch_size=1000, retries=10, verbose=True, **kwargs):  # noqa
     return BatchSwissParlClient(
-        url=SERVICE_URL, batch_size=batch_size, retries=retries
+        url=SERVICE_URL, batch_size=batch_size, retries=retries, verbose=verbose
     ).get_data(table, filter, **kwargs)
