@@ -83,9 +83,10 @@ class SwissParlClient(object):
                 .top(batch_size)
             )
         logger.debug(
-            f"""Launching batch request for data of table {table} with batch size {batch_size}
-                num requests: {len(batch_requests)} for data of size {count_data}
-            """
+            """Launching batch request for data of table %s with batch size %i
+                num requests: %i for data of size %i
+            """, 
+            table, batch_size, len(batch_requests), count_data
         )
         return SwissParlBatchedResponse(
             batch_requests, self.get_variables(table), use_disk=use_disk
@@ -132,7 +133,7 @@ class SwissParlBatchedResponse(SwissParlResponse):
         self.savefiles = []
         for i, entity_request in tqdm.tqdm(enumerate(entity_requests)):
             batch_entities = self._execute_and_retry(entity_request, retries)
-            logger.debug(f"Batch {i} successful")
+            logger.debug("Batch %i successful", i)
             if use_disk:
                 file_path = os.path.join(save_loc, f"batch{i}")
                 with open(file_path, "w") as file:
@@ -155,13 +156,13 @@ class SwissParlBatchedResponse(SwissParlResponse):
             try:
                 return request.execute()
             except ConnectionError:
-                logger.debug(f"Retrying request... num retries: {trials}")
+                logger.debug("Retrying request... num retries: %i", trials)
                 trials += 1
             except pyodata.exceptions.HttpError:
-                logger.info(f"HTTP error, retrying...num retries: {trials}")
+                logger.info("HTTP error, retrying...num retries: %i", trials)
                 trials += 1
 
-        raise SwissParlError(f"Could not execute request after {retries} retries")
+        raise SwissParlError("Could not execute request after %i retries", retries)
 
 
 class SwissParlDataProxy(object):
