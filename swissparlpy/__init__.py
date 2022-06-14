@@ -10,15 +10,7 @@ from .client import SwissParlClient, BatchSwissParlClient
 from pyodata.v2.service import GetEntitySetFilter as filter  # noqa
 
 
-client = BatchSwissParlClient(url=SERVICE_URL, batch_size=1000, retries=10)
-
-
-def set_batch_size(size):
-    client.batch_size = size
-
-
-def set_retries(retries):
-    client.retries = retries
+client = SwissParlClient(url=SERVICE_URL)
 
 
 def get_tables():
@@ -37,9 +29,11 @@ def get_glimpse(table, rows=5):
     return client.get_glimpse(table, rows)
 
 
-def get_data(table, filter=None, **kwargs):  # noqa
-    return client.get_data(table, filter, **kwargs)
-
-
 def get_count(table, filter=None, **kwargs):  # noqa
     return client.get_count(table, filter, **kwargs)
+
+
+def get_data(table, filter=None, batch_size=1000, retries=10, **kwargs):  # noqa
+    return BatchSwissParlClient(
+        url=SERVICE_URL, batch_size=batch_size, retries=retries
+    ).get_data(table, filter, **kwargs)
