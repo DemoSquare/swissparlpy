@@ -66,5 +66,5 @@ class BatchSwissParlClient(SwissParlClient):
             self._execute_and_retry(query) for query in tqdm.tqdm(queries)
         )
 
-        return SwissParlResponse(entities, self.get_variables(table))
+        return SwissParlResponse(list(entities), self.get_variables(table))
 
