@@ -57,7 +57,7 @@ class SwissParlClient(object):
         entities = self._filter_entities(self._get_entities(table), filter, **kwargs)
         return entities.count().execute()
 
-        
+
     def _get_entities(self, table):
         return getattr(self.client.entity_sets, table).get_entities()
 
@@ -148,11 +148,11 @@ class SwissParlBatchedResponse(SwissParlResponse):
                     )
                 self.savefiles.append(file_path)
             else:
-                entities.append(entities)
+                entities.extend(entities)
             count += entities.total_count
 
         super().__init__(entities, variables, count)
-        
+
     def _execute_and_retry(self, request, retries):
         trials = 0
         while trials < retries:
