@@ -1,4 +1,3 @@
-import abc
 import math
 import logging
 
@@ -93,7 +92,7 @@ class SwissParlClient(object):
         )
 
 
-class SwissParlResponse(abc.ABC):
+class SwissParlResponse:
     def __init__(self, entities, variables):
         self.entities = entities
         self.variables = variables
