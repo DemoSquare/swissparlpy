@@ -5,7 +5,8 @@ import math
 import pyodata
 import tqdm
 
-from swissparlpy.client import SERVICE_URL, SwissParlClient
+from swissparlpy import SERVICE_URL
+from swissparlpy.client import SwissParlClient
 from swissparlpy.errors import SwissParlError
 from swissparlpy.response import SwissParlResponse
 
