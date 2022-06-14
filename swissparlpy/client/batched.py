@@ -54,12 +54,20 @@ class BatchSwissParlClient(SwissParlClient):
         raise SwissParlError("Could not execute request after %i retries", self.retries)
 
     def get_data(self, table, filter=None, **kwargs):
-        entities = self._filter_entities(self._get_entities(table), filter, **kwargs)
-        data_count = entities.count().execute()
+        data_count = (
+            self._filter_entities(self._get_entities(table), filter, **kwargs)
+            .count()
+            .execute()
+        )
 
         # No need for batching
         if data_count <= self.batch_size:
-            return SwissParlResponse(entities.execute(), self.get_variables(table))
+            return SwissParlResponse(
+                self._filter_entities(
+                    self._get_entities(table), filter, **kwargs
+                ).execute(),
+                self.get_variables(table),
+            )
 
         queries = self._get_batch_queries(table, filter, data_count, **kwargs)
         entities = itertools.chain.from_iterable(
