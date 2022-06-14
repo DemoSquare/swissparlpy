@@ -1,1 +1,2 @@
 from swissparlpy.client.client import SwissParlClient
+from swissparlpy.client.batched import BatchSwissParlClient
