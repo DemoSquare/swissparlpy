@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 
 
 class SwissParlClient(object):
-    def __init__(self, session=None, usl=SERVICE_URL):
+    def __init__(self, session=None, url=SERVICE_URL):
         if not session:
             session = requests.Session()
         self.url = url
