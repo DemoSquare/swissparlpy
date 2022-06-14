@@ -1,11 +1,11 @@
-import math
+import json
 import logging
+import math
+import os
 
 import pyodata
 import requests
 import tqdm
-import os
-import json
 
 from swissparlpy import SwissParlError
 
