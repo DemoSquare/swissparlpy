@@ -22,6 +22,18 @@ class SwissParlClient(object):
         self.cache = {}
         self.get_overview()
 
+    def _get_entities(self, table):
+        return getattr(self.client.entity_sets, table).get_entities()
+
+    def _filter_entities(self, entities, filter=None, **kwargs):
+        if filter and callable(filter):
+            entities = entities.filter(filter(entities))
+        elif filter:
+            entities = entities.filter(filter)
+        if kwargs:
+            entities = entities.filter(**kwargs)
+        return entities
+
     def get_tables(self):
         if self.cache:
             return list(self.cache.keys())
@@ -55,19 +67,6 @@ class SwissParlClient(object):
     def get_count(self, table, filter=None, **kwargs):
         entities = self._filter_entities(self._get_entities(table), filter, **kwargs)
         return entities.count().execute()
-
-
-    def _get_entities(self, table):
-        return getattr(self.client.entity_sets, table).get_entities()
-
-    def _filter_entities(self, entities, filter=None, **kwargs):
-        if filter and callable(filter):
-            entities = entities.filter(filter(entities))
-        elif filter:
-            entities = entities.filter(filter)
-        if kwargs:
-            entities = entities.filter(**kwargs)
-        return entities
 
     def get_data_batched(
         self, table, filter=None, batch_size=50000, use_disk=False, **kwargs
