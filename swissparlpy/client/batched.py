@@ -4,6 +4,7 @@ import math
 
 import pyodata
 import tqdm
+from joblib import Parallel, delayed
 
 from swissparlpy import SERVICE_URL
 from swissparlpy.client import SwissParlClient
@@ -15,7 +16,13 @@ logger = logging.getLogger(__name__)
 
 class BatchSwissParlClient(SwissParlClient):
     def __init__(
-        self, session=None, url=SERVICE_URL, batch_size=1000, retries=10, verbose=True
+        self,
+        session=None,
+        url=SERVICE_URL,
+        batch_size=1000,
+        retries=10,
+        verbose=True,
+        n_jobs=1,
     ):
         super().__init__(session, url)
         if batch_size < 1000:
@@ -24,6 +31,7 @@ class BatchSwissParlClient(SwissParlClient):
         self.batch_size = batch_size
         self.retries = max(0, retries)
         self.verbose = verbose
+        self.n_jobs = n_jobs
 
     def _get_batch_queries(self, table, filter, data_count, **kwargs):
         queries = []
@@ -73,10 +81,12 @@ class BatchSwissParlClient(SwissParlClient):
             )
 
         queries = self._get_batch_queries(table, filter, data_count, **kwargs)
-        entities = itertools.chain.from_iterable(
-            self._execute_and_retry(query)
+        entities = Parallel(n_jobs=self.n_jobs, backend="threading")(
+            delayed(self._execute_and_retry)(query)
             for query in tqdm.tqdm(queries, disable=not self.verbose)
         )
 
-        return SwissParlResponse(list(entities), self.get_variables(table))
+        return SwissParlResponse(
+            list(itertools.chain(*entities)), self.get_variables(table)
+        )
 
