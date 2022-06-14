@@ -3,11 +3,12 @@
 __version__ = "0.2.1"
 __all__ = ["client", "errors"]
 
+SERVICE_URL = "https://ws.parlament.ch/odata.svc/"
+
 from .errors import SwissParlError  # noqa
 from .client import SwissParlClient, BatchSwissParlClient
 from pyodata.v2.service import GetEntitySetFilter as filter  # noqa
 
-SERVICE_URL = "https://ws.parlament.ch/odata.svc/"
 
 client = BatchSwissParlClient(url=SERVICE_URL, batch_size=1000, retries=10)
 
