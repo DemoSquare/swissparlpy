@@ -9,6 +9,10 @@ class SwissParlResponse:
         for e in self.entities:
             row = {k: SwissParlDataProxy(e, k) for k in self.variables}
             self.data.append(row)
+    
+    @property
+    def count(self):
+        return self.__len__()
 
     def __len__(self):
         return len(self.entities)
