@@ -59,6 +59,12 @@ See the [`examples` directory](/examples) for more scripts.
 >>> [d['CantonName'] for d in data]
 ['Bern', 'Neuenburg', 'Genf', 'Wallis', 'Uri', 'Schaffhausen', 'Jura', 'Basel-Stadt', 'St. Gallen', 'Obwalden', 'Appenzell A.-Rh.', 'Solothurn', 'Waadt', 'Zug', 'Aargau', 'Basel-Landschaft', 'Luzern', 'Thurgau', 'Freiburg', 'Appenzell I.-Rh.', 'Schwyz', 'Graubünden', 'Glarus', 'Tessin', 'Zürich', 'Nidwalden']
 ```
+For most tables, the api limits the number of downloaded rows to 1000. To cicumvent this, we download tables in chunks. The argument `batch_size` of `get_data` controls the size of these chunks.  
+<span style="color:red">*Warning!*</span> Setting `batch_size` to a number larger than 1000 may result in some rows being skipped.  
+`retries` controls the number of times a request is retried before an exception is thrown. By default this parameter is set to 10 because the api can be unstable.  
+If `verbose` is set to `True`, then a progress bar will be shown as the data is downloaded.  
+For large tables especially, the download can benefit from parrallelism. `n_jobs` controls the number of threads used. A full description can be found in [joblib's documentation](https://joblib.readthedocs.io/en/latest/generated/joblib.Parallel.html). `n_jobs=1` uses no parrallelism, `n_jobs=-1` uses all available CPU's. 
+ 
 
 The return value of `get_data` is iterable, so you can easily loop over it. Or you can use indices to access elements, e.g. `data[1]` to get the second element, or `data[-1]` to get the last one.
 
