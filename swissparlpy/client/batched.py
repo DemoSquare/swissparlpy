@@ -58,7 +58,7 @@ class BatchSwissParlClient(SwissParlClient):
         while trials < self.retries:
             try:
                 return query.execute()
-            except ConnectionError | pyodata.exceptions.HttpError:
+            except (ConnectionError, pyodata.exceptions.HttpError):
                 logger.debug("Retrying request... num retries: %i", trials)
                 trials += 1
 
